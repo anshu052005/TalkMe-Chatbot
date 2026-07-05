@@ -12,7 +12,8 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import START, StateGraph
 from langgraph.graph.message import add_messages
@@ -24,17 +25,15 @@ load_dotenv()
 # -------------------
 # 1. LLM + embeddings
 # -------------------
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",  # or another Groq-supported model
+    temperature=0,
+    groq_api_key=os.getenv("GROQ_API_KEY"),
 )
-# Google ka sabse efficient aur chota embedding model
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import os
+from langchain_huggingface import HuggingFaceEmbeddings
 
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="gemini-embedding-2-preview",
-    google_api_key=os.environ["GOOGLE_API_KEY"],
+embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
 print(embeddings.embed_query("Hello"))
@@ -252,3 +251,27 @@ def thread_has_document(thread_id: str) -> bool:
 
 def thread_document_metadata(thread_id: str) -> dict:
     return _THREAD_METADATA.get(str(thread_id), {})
+
+
+def delete_thread(thread_id: str) -> None:
+    """
+    Permanently delete a thread's conversation history and any in-memory
+    document data associated with it.
+
+    - Removes all checkpoints/writes for the thread from the SQLite
+      checkpointer (`chatbot.db`), so it will no longer show up in
+      `retrieve_all_threads()` after this call.
+    - Cleans up the in-process FAISS retriever + metadata for that thread,
+      since those live only in RAM and are keyed by thread_id.
+
+    Safe to call even if the thread has no indexed document or if it was
+    already removed — both steps are no-ops in that case.
+    """
+    thread_key = str(thread_id)
+
+    # 1. Remove persisted checkpoints/writes for this thread.
+    checkpointer.delete_thread(thread_key)
+
+    # 2. Remove any in-memory PDF retriever/metadata tied to this thread.
+    _THREAD_RETRIEVERS.pop(thread_key, None)
+    _THREAD_METADATA.pop(thread_key, None)

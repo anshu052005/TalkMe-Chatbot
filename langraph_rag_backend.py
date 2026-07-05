@@ -25,10 +25,14 @@ load_dotenv()
 # -------------------
 # 1. LLM + embeddings
 # -------------------
+import streamlit as st
+
+groq_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
+
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",  # or another Groq-supported model
+    model="llama-3.3-70b-versatile",
     temperature=0,
-    groq_api_key=os.getenv("GROQ_API_KEY"),
+    groq_api_key=groq_key,
 )
 from langchain_huggingface import HuggingFaceEmbeddings
 

@@ -30,7 +30,7 @@ import streamlit as st
 groq_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
 
 llm = ChatGroq(
-    model="llama-3.1-8b-instant",
+    model="openai/gpt-oss-20b",
     temperature=0,
     groq_api_key=groq_key,
 )
